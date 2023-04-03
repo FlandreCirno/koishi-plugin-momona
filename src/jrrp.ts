@@ -1,4 +1,5 @@
-import { Context, Schema, h } from "koishi";
+import { Context, Dict, Random, Schema, h } from "koishi";
+import * as MomonaCore from "./momona";
 export const name = "momona-jrrp";
 
 export interface Config {
@@ -11,7 +12,18 @@ export const Config: Schema<Config> = Schema.object({
   proxy: Schema.string().default("setubot-flandrecirno.herokuapp.com"),
 });
 
+export interface JrrpData {
+  date: Date;
+  jrrp: Dict;
+}
+
+export const JrrpData: Schema<JrrpData> = Schema.object({
+  date: Schema.date().default(new Date()),
+  jrrp: Schema.dict(Schema.number()),
+});
+
 export function apply(ctx: Context) {
+  MomonaCore.loadData("Jrrp", JrrpData);
   ctx
     .command("setu [...tags]", "色图")
     .usage("根据Pixiv tag搜索色图")
@@ -27,7 +39,6 @@ export function apply(ctx: Context) {
           taglist.push(tags[i].toString());
         }
       }
-      console.log(taglist);
       const params = {
         size1200: true,
         proxy: ctx.config.proxy,
@@ -47,5 +58,26 @@ export function apply(ctx: Context) {
             session.send(session.text("setu_error"));
           }
         });
+    });
+
+  ctx
+    .command("jrrp", "今日人品")
+    .userFields(["name"])
+    .action(({ session }) => {
+      const timenow = new Date();
+
+      //日期变更清除数据
+      if (MomonaCore.momona_data["Jrrp"].date.getDay() != timenow.getDay()) {
+        MomonaCore.momona_data["Jrrp"].date = timenow;
+        MomonaCore.momona_data["Jrrp"].jrrp = {};
+      }
+      let rp = MomonaCore.momona_data["Jrrp"].jrrp[session.userId];
+
+      if (rp === undefined) {
+        rp = Random.int(1, 101);
+        MomonaCore.momona_data["Jrrp"].jrrp[session.userId] = rp;
+        MomonaCore.saveData("Jrrp");
+      }
+      return session.text("jrrp", [session.user.name || session.username, rp]);
     });
 }

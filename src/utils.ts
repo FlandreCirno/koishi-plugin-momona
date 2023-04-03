@@ -25,8 +25,23 @@ export function isGroup(session: Session) {
 }
 
 export function isGroupAdmin(session: Session) {
-  if (session.platform == "discord") {
+  if (session.platform === "discord") {
+    return true;
+  } else if (session.platform === "onebot") {
     return true;
   }
-  return true;
+}
+
+export function getValue(obj: object, attr: string) {
+  if (obj[attr] === undefined) {
+    obj[attr] = {};
+  }
+  return obj[attr];
+}
+
+export function getArrayValue(obj: object, attr: string) {
+  if (obj[attr] === undefined) {
+    obj[attr] = [];
+  }
+  return obj[attr];
 }
