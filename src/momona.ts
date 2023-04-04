@@ -1,4 +1,4 @@
-import { Context, Dict, Schema } from "koishi";
+import { Context, Dict, Schema, h } from "koishi";
 import * as utils from "./utils";
 import { getValue } from "./utils";
 import path from "path";
@@ -30,23 +30,28 @@ export function apply(ctx: Context, cfg: Config) {
   const logger = ctx.logger("momona-core");
 
   //bot开关逻辑
-  ctx
-    .intersect((session) => session.channelId !== undefined)
-    .middleware((session, next) => {
-      const botReg: string = utils.commposeBotReg(ctx, session.selfId);
-      let bswitch: boolean;
-      bswitch = getValue(momona_data["Momona"].switch_group, session.platform)[
-        session.channelId
-      ];
-      if (session.content.match(botReg) || bswitch === undefined || bswitch) {
-        return next();
-      }
-      logger.debug(`message from ${session.channelId} blocked by switch`);
-    }, true);
+  ctx.middleware((session, next) => {
+    const botReg: string = utils.commposeBotReg(ctx, session.selfId);
+    let bswitch: boolean;
+    bswitch = getValue(momona_data["Momona"].switch_group, session.platform)[
+      session.channelId
+    ];
+    if (session.content.match(botReg) || bswitch === undefined || bswitch) {
+      return next();
+    }
+    logger.debug(`message from ${session.channelId} blocked by switch`);
+  }, true);
+
+  //修改过长消息为群聊转发
+  // ctx.before("send", (session) => {
+  //   if (session.content.length > 100) {
+  //     console.log(session.content);
+  //     return true;
+  //   }
+  // });
 
   //bot开关指令
   ctx
-    .intersect((session) => session.channelId !== undefined)
     .command("bot [option] [nn]", "功能开关")
     .usage("如果梦梦奈打扰到了阁下，可以这样告诉梦梦奈")
     .action(({ session }, option, nn) => {
@@ -79,7 +84,6 @@ export function apply(ctx: Context, cfg: Config) {
 
   //更改欢迎词
   ctx
-    .intersect((session) => session.channelId !== undefined)
     .command("welcome [welcome]", "入群欢迎")
     .usage("设置新人入群欢迎词")
     .example(".welcome {@} 欢迎新人")

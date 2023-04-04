@@ -28,6 +28,11 @@ export function isGroupAdmin(session: Session) {
   if (session.platform === "discord") {
     return true;
   } else if (session.platform === "onebot") {
+    if (session.subtype === "group") {
+      if (session.author.roles.includes("member")) {
+        return false;
+      }
+    }
     return true;
   }
 }

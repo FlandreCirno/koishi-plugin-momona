@@ -33,7 +33,10 @@ export function apply(ctx: Context) {
       let taglist = [];
 
       for (let i in tags) {
-        if (tags[i].toString().toLowerCase() === "r18") {
+        if (
+          tags[i].toString().toLowerCase() === "r18" &&
+          session.platform !== "onebot"
+        ) {
           r18 = 1;
         } else {
           taglist.push(tags[i].toString());
@@ -53,6 +56,12 @@ export function apply(ctx: Context) {
             let imgurl = response["data"][0]["urls"]["regular"];
             if (session.platform === "discord") {
               session.send(h("image", { url: imgurl }));
+            } else if (session.platform === "onebot") {
+              if (r18 === 1) {
+                session.send(imgurl);
+              } else {
+                session.send(h("image", { url: imgurl }));
+              }
             }
           } else {
             session.send(session.text("setu_error"));
