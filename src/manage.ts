@@ -118,8 +118,12 @@ export function apply(ctx: Context) {
     })
     .action(({ session }, msg) => {
       logger.info(`received apply from ${session.username}(${session.userId})`);
-      session.bot.sendPrivateMessage(
-        ctx.config.qqadmin,
+      // session.bot.sendPrivateMessage(
+      //   ctx.config.qqadmin,
+      //   `收到来自${session.username}(${session.userId})的消息：${msg}`
+      // );
+      session.bot.sendMessage(
+        "247747205",
         `收到来自${session.username}(${session.userId})的消息：${msg}`
       );
       return "申请发送成功，请等待申请通过";

@@ -18,9 +18,11 @@ export const bilibili_params = {
 };
 
 export interface Config {
-  twitter: Array<string>;
-  twitter_token: string;
-  bilibili_url: string;
+  twitter?: Array<string>;
+  twitter_token?: string;
+  bilibili_url?: string;
+  onebot_mode?: string;
+  onebot_combined_qq?: string;
 }
 
 export const Config: Schema<Config> = Schema.object({
@@ -32,6 +34,8 @@ export const Config: Schema<Config> = Schema.object({
   bilibili_url: Schema.string().default(
     "https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/space_history"
   ),
+  onebot_mode: Schema.union(["combined", "sliced"]).default("sliced"),
+  onebot_combined_qq: Schema.string().default("353252500"),
 });
 
 export interface BLHXData {
@@ -53,6 +57,7 @@ export const BLHXData: Schema<BLHXData> = Schema.object({
 });
 
 export function apply(ctx: Context, cfg: Config) {
+  cfg = Config(cfg);
   MomonaCore.loadData("BLHX", BLHXData);
   const logger = ctx.logger("momona-blhx");
   const translate_v2 = new google_translate.v2.Translate();
@@ -91,22 +96,88 @@ export function apply(ctx: Context, cfg: Config) {
       hidden: true,
     })
     .action(async ({ session }, option) => {
-      const tweets = await twitterClient.v1.userTimelineByUsername(
-        "azurlane_staff"
-      );
-      for (const tweet of tweets) {
-        forwardTweet(tweet);
-        break;
+      if (option === "twitter") {
+        const tweets = await twitterClient.v1.userTimelineByUsername(
+          "azurlane_staff"
+        );
+        for (const tweet of tweets) {
+          console.log(JSON.stringify(tweet));
+          forwardTweet(tweet);
+          break;
+        }
+      } else if (option === "bilibili") {
+        const bilibili_data = (
+          await ctx.http("GET", ctx.config.bilibili_url, {
+            params: bilibili_params,
+          })
+        )["data"];
+
+        for (const card of bilibili_data["cards"]) {
+          await forwardDynamic(card);
+          break;
+        }
+      } else if (option === "msg") {
+        const onebot = ctx.bots[ob_bot];
+        const msg = (
+          <message forward>
+            <message>
+              <author
+                user-id={onebot.selfId}
+                nickname="梦梦奈"
+                avatar={onebot.avatar}
+              ></author>
+              アズールレーン公式发布了新推特： 【お知らせ】
+              エイプリルフールミニイベント「一撃！PURIN！」、
+              母港と海域に隠されている「ヒント」をすべて集めると、限定特殊装備を入手可能！
+              入手期限は明日4月6日(木)メンテナンスまで！ ぜひ、お見逃しなく！
+              #アズールレーン https://t.co/wzfRPLepHb
+            </message>
+            <message>
+              <author
+                user-id={onebot.selfId}
+                nickname="梦梦奈"
+                avatar={onebot.avatar}
+              ></author>
+              谷歌生草机：{"\n"}
+              【注意】 愚人节小活动“吹！PURIN！”，
+              集齐母港和海域隐藏的所有“提示”，即可获得限定特殊装备！
+              截止日期为明天，4月6日（周四）维护！ 千万不要错过！ # 碧蓝航线
+              https://t.co/wzfRPLepHb
+            </message>
+            <message>
+              <author
+                user-id={onebot.selfId}
+                nickname="梦梦奈"
+                avatar={onebot.avatar}
+              ></author>
+              1
+            </message>
+            <message>
+              <author
+                user-id={onebot.selfId}
+                nickname="梦梦奈"
+                avatar={onebot.avatar}
+              ></author>
+              1
+            </message>
+            <message>
+              <author
+                user-id={onebot.selfId}
+                nickname="梦梦奈"
+                avatar={onebot.avatar}
+              ></author>
+              1
+            </message>
+          </message>
+        );
+        console.log(await session.send(msg));
+      } else if (option === "msg2") {
+        session.send(
+          <message forward>
+            <message id="-354048666" />
+          </message>
+        );
       }
-
-      // const sent_post = MomonaCore.momona_data["BLHX"].sent_post;
-      // const bilibili_data = (
-      //   await ctx.http("GET", ctx.config.bilibili_url, {
-      //     params: bilibili_params,
-      //   })
-      // )["data"];
-
-      // return forwardDynamic(bilibili_data["cards"][option || 0]);
     });
 
   async function translate(translate_text) {
@@ -153,26 +224,56 @@ export function apply(ctx: Context, cfg: Config) {
       })
     );
     const onebot = ctx.bots[ob_bot];
-    // <message forward>
-    //   <message>
-    //     <author
-    //       user-id={onebot.selfId}
-    //       nickname="梦梦奈"
-    //       avatar={onebot.avatar}
-    //     ></author>
-    //     {message}
-    //   </message>
-    // </message>
-    onebot.broadcast(
-      broadcast_onebot,
-      slice(message.message.replace(HTTPREGEX, "")).map((m) => h("message", m))
-    );
-    onebot.broadcast(
-      broadcast_onebot,
-      message.images.map((src) => {
-        return h.image(src);
-      })
-    );
+    // 分片发送模式
+    if (cfg.onebot_mode === "slice") {
+      onebot.broadcast(
+        broadcast_onebot,
+        slice(message.message).map((m) => h("message", m))
+      );
+      onebot.broadcast(
+        broadcast_onebot,
+        message.images.map((src) => {
+          return h.image(src);
+        })
+      );
+    } else if (cfg.onebot_mode === "combined") {
+      // 合并转发模式
+      // 长度小于80仍然发单独消息
+      if (message.message.length < 80) {
+        onebot.broadcast(broadcast_onebot, message.message);
+        onebot.broadcast(
+          broadcast_onebot,
+          message.images.map((src) => {
+            return h.image(src);
+          })
+        );
+      } else {
+        const msg_id = await onebot.sendPrivateMessage(
+          cfg.onebot_combined_qq,
+          <message forward>
+            <message>
+              <author
+                user-id={onebot.selfId}
+                nickname="梦梦奈"
+                avatar={onebot.avatar}
+              ></author>
+              {message.message}
+              {"\n"}
+              {message.images.map((src) => {
+                return h.image(src);
+              })}
+            </message>
+          </message>
+        );
+        onebot.broadcast(broadcast_onebot, message.message.split("\n")[0]);
+        onebot.broadcast(
+          broadcast_onebot,
+          <message forward>
+            <message id={msg_id[0]} />
+          </message>
+        );
+      }
+    }
     logger.info(`已转发b博${dynamic["desc"]["dynamic_id"]}`);
   }
 
@@ -203,8 +304,8 @@ export function apply(ctx: Context, cfg: Config) {
     const images = [];
     if (entities.media) {
       for (const media of entities.media) {
-        if (media.type === "photo" && media.media_utl_https) {
-          images.push(media.media_utl_https);
+        if (media.type === "photo" && media.media_url_https) {
+          images.push(media.media_url_https);
         }
       }
     }
@@ -263,39 +364,82 @@ export function apply(ctx: Context, cfg: Config) {
       "谷歌生草机：\n" + translated
     );
     const onebot = ctx.bots[ob_bot];
-    // <message forward>
-    //   <message>
-    //     <author
-    //       user-id={onebot.selfId}
-    //       nickname="梦梦奈"
-    //       avatar={onebot.avatar}
-    //     ></author>
-    //     {message}
-    //   </message>
-    //   <message>
-    //     <author
-    //       user-id={onebot.selfId}
-    //       nickname="梦梦奈"
-    //       avatar={onebot.avatar}
-    //     ></author>
-    //     谷歌生草机：{"\n"}
-    //     {translated}
-    //   </message>
-    // </message>
-    await onebot.broadcast(
-      broadcast_onebot,
-      slice(message.message).map((m) => h("message", m))
-    );
-    onebot.broadcast(
-      broadcast_onebot,
-      message.images.map((src) => {
-        return h.image(src);
-      })
-    );
-    onebot.broadcast(
-      broadcast_onebot,
-      slice(`谷歌生草机：\n${translated}`).map((m) => h("message", m))
-    );
+
+    if (cfg.onebot_mode === "sliced") {
+      await onebot.broadcast(
+        broadcast_onebot,
+        slice(message.message).map((m) => h("message", m))
+      );
+      onebot.broadcast(
+        broadcast_onebot,
+        message.images.map((src) => {
+          return h.image(src);
+        })
+      );
+      onebot.broadcast(
+        broadcast_onebot,
+        slice(`谷歌生草机：\n${translated}`).map((m) => h("message", m))
+      );
+    } else if (cfg.onebot_mode === "combined") {
+      // const msg_id1 = await onebot.sendPrivateMessage(
+      //   cfg.onebot_combined_qq,
+      //   <>
+      //     {message.message}
+      //     {"\n"}
+      //     {message.images.map((src) => {
+      //       return h.image(src);
+      //     })}
+      //   </>
+      // );
+      // const msg_id2 = await onebot.sendPrivateMessage(
+      //   cfg.onebot_combined_qq,
+      //   <>
+      //     谷歌生草机：{"\n"}
+      //     {translated}
+      //   </>
+      // );
+      // const msg_id = await onebot.sendPrivateMessage(
+      //   cfg.onebot_combined_qq,
+      //   <message forward>
+      //     <message id={msg_id1[0]} />
+      //     <message id={msg_id2[0]} />
+      //   </message>
+      // );
+
+      const msg_id = await onebot.sendPrivateMessage(
+        cfg.onebot_combined_qq,
+        <message forward>
+          <message>
+            <author
+              user-id={onebot.selfId}
+              nickname="梦梦奈"
+              avatar={onebot.avatar}
+            ></author>
+            {message.message}
+            {"\n"}
+            {message.images.map((src) => {
+              return h.image(src);
+            })}
+          </message>
+          <message>
+            <author
+              user-id={onebot.selfId}
+              nickname="梦梦奈"
+              avatar={onebot.avatar}
+            ></author>
+            谷歌生草机：{"\n"}
+            {translated}
+          </message>
+        </message>
+      );
+      onebot.broadcast(broadcast_onebot, message.message.split("\n")[0]);
+      onebot.broadcast(
+        broadcast_onebot,
+        <message forward>
+          <message id={msg_id[0]} />
+        </message>
+      );
+    }
 
     logger.info(`已转发推特${tweet.id}`);
   }
@@ -335,7 +479,9 @@ export function apply(ctx: Context, cfg: Config) {
             sent_tweets.shift();
           }
           MomonaCore.saveData("BLHX");
-          await forwardTweet(tweet);
+          if (!tweet["retweeted_status"] && !tweet["in_reply_to_status_id"]) {
+            await forwardTweet(tweet);
+          }
         }
       }
     }

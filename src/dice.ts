@@ -4,9 +4,9 @@ import {} from "@koishijs/plugin-help";
 export const name = "momona-dice";
 
 export interface Config {
-  max_dice: number;
-  max_roll: number;
-  default_dice: number;
+  max_dice?: number;
+  max_roll?: number;
+  default_dice?: number;
 }
 
 export const Config: Schema<Config> = Schema.object({

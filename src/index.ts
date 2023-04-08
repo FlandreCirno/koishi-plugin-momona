@@ -16,6 +16,7 @@ export interface Config {
   twitter_token: string;
   twitter: Array<string>;
   bilibili_url: string;
+  onebot_mode: string;
 }
 
 export const Config: Schema<Config> = Schema.object({
@@ -28,6 +29,7 @@ export const Config: Schema<Config> = Schema.object({
   bilibili_url: Schema.string().default(
     "https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/space_history"
   ),
+  onebot_mode: Schema.string(),
 });
 
 const config = new Config();
