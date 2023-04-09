@@ -3,7 +3,7 @@ import * as MomonaCore from "./momona";
 import { getArrayValue, getValue } from "./utils";
 import * as utils from "./utils";
 import {} from "koishi-plugin-cron";
-import {} from "koishi-plugin-puppeteer";
+import { Shooter } from "koishi-plugin-puppeteer";
 import { Page } from "puppeteer-core";
 import OneBotBot, { CQCode, OneBot } from "@koishijs/plugin-adapter-onebot";
 import * as google_translate from "@google-cloud/translate";
@@ -113,6 +113,7 @@ export function apply(ctx: Context, cfg: Config) {
         )["data"];
 
         for (const card of bilibili_data["cards"]) {
+          console.log(JSON.stringify(card));
           await forwardDynamic(card);
           break;
         }
@@ -176,6 +177,26 @@ export function apply(ctx: Context, cfg: Config) {
           <message forward>
             <message id="-354048666" />
           </message>
+        );
+      } else if (option === "screenshot1") {
+        session.send(
+          h.image(
+            await renderWebpage(
+              "https://www.bilibili.com/opus/781348069994135671",
+              ".bili-dyn-item__main" //".bili-opus-view"
+            ),
+            "data"
+          )
+        );
+      } else if (option === "screenshot2") {
+        session.send(
+          h.image(
+            await renderWebpage(
+              "https://twitter.com/azurlane_staff/status/1644595940035293184",
+              'article[data-testid="tweet"]'
+            ),
+            "data"
+          )
         );
       }
     });
@@ -248,7 +269,31 @@ export function apply(ctx: Context, cfg: Config) {
           })
         );
       } else {
-        const msg_id = await onebot.sendPrivateMessage(
+        const dynamic_type = dynamic["desc"]["type"];
+        let screenshot_buffer: Promise<Buffer>;
+        if (dynamic_type === 1) {
+          screenshot_buffer = renderWebpage(
+            `https://www.bilibili.com/opus/${dynamic["desc"]["dynamic_id_str"]}`,
+            ".bili-dyn-item__main"
+          );
+        } else if (dynamic_type === 4) {
+          screenshot_buffer = renderWebpage(
+            `https://www.bilibili.com/opus/${dynamic["desc"]["dynamic_id_str"]}`,
+            ".bili-opus-view"
+          );
+        } else if (dynamic_type === 2) {
+          screenshot_buffer = renderWebpage(
+            `https://www.bilibili.com/opus/${dynamic["desc"]["dynamic_id_str"]}`,
+            ".bili-opus-view"
+          );
+        } else if (dynamic_type === 64) {
+          const dynamic_card = JSON.parse(dynamic["card"]);
+          screenshot_buffer = renderWebpage(
+            `https://www.bilibili.com/read/cv${dynamic_card["id"]}`,
+            ".article-container"
+          );
+        }
+        const msg_id1: Promise<string[]> = onebot.sendPrivateMessage(
           cfg.onebot_combined_qq,
           <message forward>
             <message>
@@ -265,11 +310,17 @@ export function apply(ctx: Context, cfg: Config) {
             </message>
           </message>
         );
+        const msg_id2: Promise<string[]> = onebot.sendPrivateMessage(
+          cfg.onebot_combined_qq,
+          h.image(await screenshot_buffer, "data")
+        );
+
         onebot.broadcast(broadcast_onebot, message.message.split("\n")[0]);
         onebot.broadcast(
           broadcast_onebot,
           <message forward>
-            <message id={msg_id[0]} />
+            <message id={(await msg_id1)[0]} />
+            <message id={(await msg_id2)[0]} />
           </message>
         );
       }
@@ -277,15 +328,15 @@ export function apply(ctx: Context, cfg: Config) {
     logger.info(`已转发b博${dynamic["desc"]["dynamic_id"]}`);
   }
 
-  // TODO redenr image
-  async function renderArticle(url: string) {
+  async function renderWebpage(url: string, selector: string) {
     let page: Page;
     try {
       page = await ctx.puppeteer.page();
-      await page.setViewport({ width: 1920, height: 1080 });
+      await page.setViewport({ width: 2560, height: 1440 });
       await page.goto(url);
       await page.waitForNetworkIdle();
-      await page.evaluate(() => {});
+      const shooter: Shooter = await page.$(selector);
+      return await shooter.screenshot({});
     } catch (e) {
       throw e;
     } finally {
@@ -406,7 +457,14 @@ export function apply(ctx: Context, cfg: Config) {
       //   </message>
       // );
 
-      const msg_id = await onebot.sendPrivateMessage(
+      const url: string =
+        "https://twitter.com/azurlane_staff/status/" + tweet.id_str;
+      const screenshot_buffer: Promise<Buffer> = renderWebpage(
+        url,
+        'article[data-testid="tweet"]'
+      );
+
+      const msg_id1: Promise<string[]> = onebot.sendPrivateMessage(
         cfg.onebot_combined_qq,
         <message forward>
           <message>
@@ -432,11 +490,18 @@ export function apply(ctx: Context, cfg: Config) {
           </message>
         </message>
       );
+
+      const msg_id2: Promise<string[]> = onebot.sendPrivateMessage(
+        cfg.onebot_combined_qq,
+        h.image(await screenshot_buffer, "data")
+      );
+
       onebot.broadcast(broadcast_onebot, message.message.split("\n")[0]);
       onebot.broadcast(
         broadcast_onebot,
         <message forward>
-          <message id={msg_id[0]} />
+          <message id={(await msg_id1)[0]} />
+          <message id={(await msg_id2)[0]} />
         </message>
       );
     }
