@@ -19,7 +19,7 @@ export function apply(ctx: Context) {
   ctx
     .command("r <expersion:text>", "随机骰子")
     .shortcut(
-      RegExp(`[${(ctx.root.config.prefix as string[]).join("")}]r(.*)`),
+      RegExp(`^[${(ctx.root.config.prefix as string[]).join("")}]r(.*)`),
       {
         args: ["$1"],
       }

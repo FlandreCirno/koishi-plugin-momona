@@ -91,19 +91,28 @@ export function apply(ctx: Context, cfg: Config) {
     });
 
   ctx
-    .command("test <option>", "test", {
+    .command("test <option> [index:integer]", "test", {
       authority: 4,
       hidden: true,
     })
-    .action(async ({ session }, option) => {
+    .action(async ({ session }, option, index) => {
+      if (index === undefined) {
+        index = 0;
+      }
       if (option === "twitter") {
         const tweets = await twitterClient.v1.userTimelineByUsername(
-          "azurlane_staff"
+          "azurlane_staff",
+          { tweet_mode: "extended", count: 5 }
         );
-        for (const tweet of tweets) {
-          console.log(JSON.stringify(tweet));
-          forwardTweet(tweet);
-          break;
+        var i = 0;
+        for (var t of tweets) {
+          if (i == index) {
+            const tweet = t;
+            console.log(JSON.stringify(tweet));
+            forwardTweet(tweet);
+            break;
+          }
+          i++;
         }
       } else if (option === "bilibili") {
         const bilibili_data = (
@@ -111,12 +120,9 @@ export function apply(ctx: Context, cfg: Config) {
             params: bilibili_params,
           })
         )["data"];
-
-        for (const card of bilibili_data["cards"]) {
-          console.log(JSON.stringify(card));
-          await forwardDynamic(card);
-          break;
-        }
+        const card = bilibili_data["cards"][index];
+        console.log(JSON.stringify(card));
+        await forwardDynamic(card);
       } else if (option === "msg") {
         const onebot = ctx.bots[ob_bot];
         const msg = (
@@ -192,7 +198,7 @@ export function apply(ctx: Context, cfg: Config) {
         session.send(
           h.image(
             await renderWebpage(
-              "https://twitter.com/azurlane_staff/status/1644595940035293184",
+              "https://twitter.com/azurlane_EN/status/1646211587236151296",
               'article[data-testid="tweet"]'
             ),
             "data"
@@ -334,7 +340,9 @@ export function apply(ctx: Context, cfg: Config) {
       page = await ctx.puppeteer.page();
       await page.setViewport({ width: 2560, height: 1440 });
       await page.goto(url);
-      await page.waitForNetworkIdle();
+      try {
+        await page.waitForNetworkIdle({ timeout: 60000, idleTime: 1000 });
+      } catch (e) {}
       const shooter: Shooter = await page.$(selector);
       return await shooter.screenshot({});
     } catch (e) {
@@ -346,6 +354,13 @@ export function apply(ctx: Context, cfg: Config) {
 
   function renderTweet(tweet: TweetV1) {
     const message: string = tweet.full_text;
+    let info_line: string;
+    if (tweet.retweeted_status) {
+      info_line = `${tweet.user.name}转发了${tweet.retweeted_status.user.name}的推特：`;
+      tweet = tweet.retweeted_status;
+    } else {
+      info_line = `${tweet.user.name}发布了新推特：`;
+    }
     let entities;
     if (tweet.extended_entities) {
       entities = tweet.extended_entities;
@@ -360,7 +375,7 @@ export function apply(ctx: Context, cfg: Config) {
         }
       }
     }
-    const finalmessage = `${tweet.user.name}发布了新推特：\n${tweet.full_text}`;
+    const finalmessage = `${info_line}\n${tweet.full_text}`;
     return { message: finalmessage, images: images };
   }
 
@@ -544,7 +559,7 @@ export function apply(ctx: Context, cfg: Config) {
             sent_tweets.shift();
           }
           MomonaCore.saveData("BLHX");
-          if (!tweet["retweeted_status"] && !tweet["in_reply_to_status_id"]) {
+          if (!tweet["in_reply_to_status_id"]) {
             await forwardTweet(tweet);
           }
         }

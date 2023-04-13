@@ -2,6 +2,7 @@ import { Context, Dict, Schema, h } from "koishi";
 import * as utils from "./utils";
 import { getValue } from "./utils";
 import path from "path";
+import OneBotBot from "@koishijs/plugin-adapter-onebot";
 export const name = "momona-core";
 
 export interface Config {
@@ -52,9 +53,18 @@ export function apply(ctx: Context, cfg: Config) {
 
   //bot开关指令
   ctx
-    .command("bot [option] [nn]", "功能开关")
+    .command("bot [option] [nn:text]", "功能开关")
     .usage("如果梦梦奈打扰到了阁下，可以这样告诉梦梦奈")
     .action(({ session }, option, nn) => {
+      if (nn) {
+        if (
+          ctx.root.config.nickname !== nn &&
+          session.selfId.substring(session.selfId.length - 4) !== nn &&
+          session.selfId !== nn
+        ) {
+          return;
+        }
+      }
       if (option) {
         let switch_data: Dict;
         let switch_id: string;
@@ -87,7 +97,7 @@ export function apply(ctx: Context, cfg: Config) {
     .command("welcome [welcome]", "入群欢迎")
     .usage("设置新人入群欢迎词")
     .example(".welcome {@} 欢迎新人")
-    .action(({ session }, welcome, nn) => {
+    .action(({ session }, welcome) => {
       if (welcome !== undefined) {
         welcome = welcome.trim();
       } else {
@@ -127,10 +137,45 @@ export function apply(ctx: Context, cfg: Config) {
   //欢迎词逻辑
   ctx.on("guild-member-added", (session) => {
     if (session.platform === "onebot") {
-      const welcome = momona_data[session.platform][session.guildId];
-      session.send(welcome);
+      const welcome: string =
+        momona_data["Momona"].welcome[session.platform][session.guildId];
+      const at = h.at(session.userId);
+      const text_list = welcome.split("{@}").flatMap((str, index) => {
+        if (index === 0) {
+          return [str];
+        } else {
+          return [at, str];
+        }
+      });
+      session.send(text_list);
     }
   });
+
+  //退群指令
+  ctx
+    .platform("onebot")
+    .command("dismiss [nn]", "退群指令")
+    .example(`.dismiss ${ctx.root.config.nickname}`)
+    .action(async ({ session }, nn) => {
+      if (nn) {
+        if (
+          !ctx.root.config.nickname.includes(nn) &&
+          session.selfId.substring(session.selfId.length - 4) !== nn &&
+          session.selfId !== nn
+        ) {
+          logger.debug(`bot名称${nn}匹配失败，未执行退群`);
+          return;
+        }
+      }
+
+      if (utils.isGroupAdmin(session)) {
+        await session.send(session.text("dismiss"));
+        logger.info(`退出群${session.guildId}`);
+        (session.bot as OneBotBot).internal.setGroupLeave(session.guildId);
+      } else {
+        return session.text("dismiss_failed");
+      }
+    });
 
   //hello world!
   ctx.on("message", (session) => {

@@ -28,7 +28,7 @@ export function apply(ctx: Context) {
     .command("setu [...tags]", "色图")
     .usage("根据Pixiv tag搜索色图")
     .example(".setu 长门")
-    .action(({ session }, ...tags) => {
+    .action(async ({ session }, ...tags) => {
       let r18 = 0;
       let taglist = [];
 
@@ -49,24 +49,42 @@ export function apply(ctx: Context) {
         r18: r18,
         tag: taglist,
       };
-      ctx
-        .http("POST", ctx.config.endpoint, { data: params })
-        .then((response) => {
-          if (response["data"] && response["data"].length > 0) {
-            let imgurl = response["data"][0]["urls"]["regular"];
-            if (session.platform === "discord") {
-              session.send(h("image", { url: imgurl }));
-            } else if (session.platform === "onebot") {
-              if (r18 === 1) {
-                session.send(imgurl);
-              } else {
-                session.send(h("image", { url: imgurl }));
+      const response = await ctx.http("POST", ctx.config.endpoint, {
+        data: params,
+      });
+
+      if (response["data"] && response["data"].length > 0) {
+        let imgurl = response["data"][0]["urls"]["regular"];
+        if (session.platform === "discord") {
+          session.send(h("image", { url: imgurl }));
+        } else if (session.platform === "onebot") {
+          if (r18 === 1) {
+            session.send(imgurl);
+          } else {
+            const ret_id: Array<string> = await session.send(
+              h("image", { url: imgurl })
+            );
+            if (ret_id.length === 0) {
+              try {
+                const bot = session.bot;
+                const msg_id = bot.sendPrivateMessage(
+                  "353252500",
+                  h("image", { url: imgurl })
+                );
+                session.send(
+                  <message forward>
+                    <message id={(await msg_id)[0]} />
+                  </message>
+                );
+              } catch (e) {
+                session.send("图被申鹤吃掉了！");
               }
             }
-          } else {
-            session.send(session.text("setu_error"));
           }
-        });
+        }
+      } else {
+        session.send(session.text("setu_error"));
+      }
     });
 
   ctx

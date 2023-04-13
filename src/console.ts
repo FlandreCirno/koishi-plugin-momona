@@ -1,5 +1,5 @@
-import { Context, Schema, h as h1 } from "koishi";
-import * as MMN from "./momona";
+import { Context, Schema, h } from "koishi";
+import * as Momona from "./momona";
 import {} from "@koishijs/plugin-help";
 export const name = "momona-console";
 
@@ -14,8 +14,8 @@ export function apply(ctx: Context) {
       hidden: true,
     })
     .action(async ({ session }, expersion) => {
-      const Momona = MMN;
-      const h = h1;
+      Momona.Config;
+      h("");
       return eval(expersion);
     });
 }
