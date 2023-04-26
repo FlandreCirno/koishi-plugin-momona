@@ -71,11 +71,14 @@ export function apply(ctx: Context) {
                   "353252500",
                   h("image", { url: imgurl })
                 );
-                session.send(
+                const fwd_id = await session.send(
                   <message forward>
                     <message id={(await msg_id)[0]} />
                   </message>
                 );
+                if (fwd_id.length == 0) {
+                  session.send("图被申鹤吃掉了！");
+                }
               } catch (e) {
                 session.send("图被申鹤吃掉了！");
               }
@@ -101,7 +104,15 @@ export function apply(ctx: Context) {
       let rp = MomonaCore.momona_data["Jrrp"].jrrp[session.userId];
 
       if (rp === undefined) {
-        rp = Random.int(1, 101);
+        if (
+          MomonaCore.momona_data["Jrrp"].date.getDay() === 14 &&
+          MomonaCore.momona_data["Jrrp"].date.getMonth() === 3
+        ) {
+          rp = 100;
+        } else {
+          rp = Random.int(1, 101);
+        }
+
         MomonaCore.momona_data["Jrrp"].jrrp[session.userId] = rp;
         MomonaCore.saveData("Jrrp");
       }

@@ -96,14 +96,15 @@ export function apply(ctx: Context, cfg: Config) {
       hidden: true,
     })
     .action(async ({ session }, option, index) => {
-      if (index === undefined) {
-        index = 0;
-      }
       if (option === "twitter") {
         const tweets = await twitterClient.v1.userTimelineByUsername(
           "azurlane_staff",
-          { tweet_mode: "extended", count: 5 }
+          { tweet_mode: "extended", count: 5, exclude_replies: true }
         );
+        if (index === undefined) {
+          console.log(tweets);
+          return;
+        }
         var i = 0;
         for (var t of tweets) {
           if (i == index) {
@@ -181,19 +182,46 @@ export function apply(ctx: Context, cfg: Config) {
       } else if (option === "msg2") {
         session.send(
           <message forward>
-            <message id="-354048666" />
+            <message id="-2088438669"></message>
           </message>
         );
+      } else if (option === "msg3") {
+        const cq1: CQCode = {
+          type: "json",
+          data: {
+            data: `{"app":"com.tencent.multimsg"&#44;"desc":"&#91;聊天记录&#93;"&#44;"bizsrc":""&#44;"view":"contact"&#44;"ver":"0.0.0.5"&#44;"prompt":"&#91;聊天记录&#93;"&#44;"meta":{"detail":{"news":&#91;{"text":"芙兰朵露琪露诺:  1"}&#44;{"text":"芙兰朵露琪露诺:  1"}&#93;&#44;"uniseq":"7225166442640429908"&#44;"resid":"ghdKwDMlOzURkjFZo3iuFzaIfCuyYTjuz8FYdUQVmQVT5FiGXXn9fj80rpHqtUSC"&#44;"summary":"查看2条转发消息"&#44;"source":"群聊的聊天记录"}}&#44;"config":{"round":1&#44;"forward":1&#44;"autosize":1&#44;"type":"normal"&#44;"width":300}}`,
+          },
+        };
+        const cq2: CQCode = {
+          type: "json",
+          data: {
+            app: "com.tencent.multimsg",
+            desc: "&#91;聊天记录&#93;",
+            bizsrc: "",
+            view: "contact",
+            ver: "0.0.0.5",
+            prompt: "&#91;聊天记录&#93;",
+            meta: `{"detail":{"news":&#91;{"text":"芙兰朵露琪露诺:  1"}&#44;{"text":"芙兰朵露琪露诺:  1"}&#93;&#44;"uniseq":"7225161631981349316"&#44;"resid":"ghdKwDMlOzURkjFZo3iuFzaIfCuyYTjuz8FYdUQVmQVT5FiGXXn9fj80rpHqtUSC"&#44;"summary":"查看2条转发消息"&#44;"source":"群聊的聊天记录"}}`,
+            config: `{"round":1&#44;"forward":1&#44;"autosize":1&#44;"type":"normal"&#44;"width":300}`,
+          },
+        };
+        const cq3: CQCode = {
+          type: "at",
+          data: {
+            qq: "353252500",
+          },
+        };
+        (session.bot as OneBotBot).internal.sendPrivateForwardMsg(353252500, [
+          cq1,
+        ]);
+      } else if (option === "msg4") {
+        session.send(<message id="1850482087" forward />);
       } else if (option === "screenshot1") {
-        session.send(
-          h.image(
-            await renderWebpage(
-              "https://www.bilibili.com/opus/781348069994135671",
-              ".bili-dyn-item__main" //".bili-opus-view"
-            ),
-            "data"
-          )
+        const img = await renderWebpage(
+          "https://www.bilibili.com/opus/781348069994135671",
+          ".bili-dyn-item__main" //".bili-opus-view"
         );
+        session.send(h.image(img, "data"));
       } else if (option === "screenshot2") {
         session.send(
           h.image(
@@ -276,29 +304,30 @@ export function apply(ctx: Context, cfg: Config) {
         );
       } else {
         const dynamic_type = dynamic["desc"]["type"];
-        let screenshot_buffer: Promise<Buffer>;
+        let screenshot_buffer: Buffer;
         if (dynamic_type === 1) {
-          screenshot_buffer = renderWebpage(
+          screenshot_buffer = await renderWebpage(
             `https://www.bilibili.com/opus/${dynamic["desc"]["dynamic_id_str"]}`,
             ".bili-dyn-item__main"
           );
         } else if (dynamic_type === 4) {
-          screenshot_buffer = renderWebpage(
+          screenshot_buffer = await renderWebpage(
             `https://www.bilibili.com/opus/${dynamic["desc"]["dynamic_id_str"]}`,
             ".bili-opus-view"
           );
         } else if (dynamic_type === 2) {
-          screenshot_buffer = renderWebpage(
+          screenshot_buffer = await renderWebpage(
             `https://www.bilibili.com/opus/${dynamic["desc"]["dynamic_id_str"]}`,
             ".bili-opus-view"
           );
         } else if (dynamic_type === 64) {
           const dynamic_card = JSON.parse(dynamic["card"]);
-          screenshot_buffer = renderWebpage(
+          screenshot_buffer = await renderWebpage(
             `https://www.bilibili.com/read/cv${dynamic_card["id"]}`,
             ".article-container"
           );
         }
+        onebot.broadcast(broadcast_onebot, message.message.split("\n")[0]);
         const msg_id1: Promise<string[]> = onebot.sendPrivateMessage(
           cfg.onebot_combined_qq,
           <message forward>
@@ -318,17 +347,16 @@ export function apply(ctx: Context, cfg: Config) {
         );
         const msg_id2: Promise<string[]> = onebot.sendPrivateMessage(
           cfg.onebot_combined_qq,
-          h.image(await screenshot_buffer, "data")
+          h.image(screenshot_buffer, "data")
         );
 
-        onebot.broadcast(broadcast_onebot, message.message.split("\n")[0]);
         onebot.broadcast(
           broadcast_onebot,
           <message forward>
             <message id={(await msg_id1)[0]} />
-            <message id={(await msg_id2)[0]} />
           </message>
         );
+        onebot.broadcast(broadcast_onebot, h.image(screenshot_buffer, "data"));
       }
     }
     logger.info(`已转发b博${dynamic["desc"]["dynamic_id"]}`);
@@ -474,10 +502,12 @@ export function apply(ctx: Context, cfg: Config) {
 
       const url: string =
         "https://twitter.com/azurlane_staff/status/" + tweet.id_str;
-      const screenshot_buffer: Promise<Buffer> = renderWebpage(
+      const screenshot_buffer: Buffer = await renderWebpage(
         url,
         'article[data-testid="tweet"]'
       );
+
+      onebot.broadcast(broadcast_onebot, message.message.split("\n")[0]);
 
       const msg_id1: Promise<string[]> = onebot.sendPrivateMessage(
         cfg.onebot_combined_qq,
@@ -508,17 +538,16 @@ export function apply(ctx: Context, cfg: Config) {
 
       const msg_id2: Promise<string[]> = onebot.sendPrivateMessage(
         cfg.onebot_combined_qq,
-        h.image(await screenshot_buffer, "data")
+        h.image(screenshot_buffer, "data")
       );
 
-      onebot.broadcast(broadcast_onebot, message.message.split("\n")[0]);
       onebot.broadcast(
         broadcast_onebot,
         <message forward>
           <message id={(await msg_id1)[0]} />
-          <message id={(await msg_id2)[0]} />
         </message>
       );
+      onebot.broadcast(broadcast_onebot, h.image(screenshot_buffer, "data"));
     }
 
     logger.info(`已转发推特${tweet.id}`);
@@ -550,7 +579,7 @@ export function apply(ctx: Context, cfg: Config) {
       const sent_tweets = getArrayValue(sent_post.twitter, twitter_account);
       const tweets = await twitterClient.v1.userTimelineByUsername(
         twitter_account,
-        { tweet_mode: "extended", count: 5 }
+        { tweet_mode: "extended", count: 5, exclude_replies: true }
       );
       for (const tweet of tweets) {
         if (!sent_tweets.includes(tweet.id)) {

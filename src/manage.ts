@@ -80,11 +80,7 @@ export function apply(ctx: Context) {
         logger.info(
           `rejecting friend request ${session.messageId} from ${session.userId}`
         );
-        bot.handleFriendRequest(
-          session.messageId,
-          false,
-          "阁下请先加群671410966申请信任"
-        );
+        bot.handleFriendRequest(session.messageId, false);
       }
     }
   });
@@ -102,10 +98,10 @@ export function apply(ctx: Context) {
         logger.info(
           `rejecting guild request ${session.messageId} from ${session.userId}`
         );
-        bot.handleFriendRequest(
+        bot.handleGuildRequest(
           session.messageId,
           false,
-          "阁下请先加群671410966申请信任"
+          "阁下请加群671410966申请信任"
         );
       }
     }

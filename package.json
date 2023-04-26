@@ -1,7 +1,7 @@
 {
   "name": "koishi-plugin-momona",
   "description": "Dice Project Momona 2",
-  "version": "2.0.4",
+  "version": "2.0.5",
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
   "files": [
@@ -20,12 +20,12 @@
     "koishi": "^4.12.2"
   },
   "dependencies": {
-    "@google-cloud/translate": "^7.2.0",
-    "@koishijs/client": "^5.5.6",
-    "@koishijs/plugin-console": "^5.5.6",
-    "@koishijs/plugin-locales": "^2.2.4",
-    "@koishijs/plugin-market": "^1.12.4",
-    "@koishijs/plugin-sandbox": "^2.7.3",
+    "@google-cloud/translate": "^7.2.1",
+    "@koishijs/client": "^5.6.1",
+    "@koishijs/plugin-console": "^5.6.1",
+    "@koishijs/plugin-locales": "^2.2.6",
+    "@koishijs/plugin-market": "^1.12.5",
+    "@koishijs/plugin-sandbox": "^2.7.7",
     "esbuild-register": "npm:@shigma/esbuild-register@^1.1.1",
     "twitter-api-v2": "^1.14.2"
   }

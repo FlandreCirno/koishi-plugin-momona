@@ -107,30 +107,23 @@ export function apply(ctx: Context, cfg: Config) {
         momona_data["Momona"].welcome,
         session.platform
       );
+      if (!utils.isGroupAdmin(session)) {
+        return session.text("welcome_error");
+      }
       if (welcome.length > 0) {
-        if (utils.isGroupAdmin(session)) {
-          if (welcome_data[session.channelId]) {
-            welcome_data[session.channelId] = welcome;
-            saveData("Momona");
-            return session.text("welcome_change");
-          } else {
-            welcome_data[session.channelId] = welcome;
-            saveData("Momona");
-            return session.text("welcome_on");
-          }
+        if (welcome_data[session.channelId]) {
+          welcome_data[session.channelId] = welcome;
+          saveData("Momona");
+          return session.text("welcome_change");
         } else {
-          //非管理员指令不改变状态
-          return session.text("welcome_error");
+          welcome_data[session.channelId] = welcome;
+          saveData("Momona");
+          return session.text("welcome_on");
         }
       } else {
-        if (utils.isGroupAdmin(session)) {
-          delete welcome_data[session.channelId];
-          saveData("Momona");
-          return session.text("welcome_off");
-        } else {
-          //非管理员指令不改变状态
-          return session.text("welcome_error");
-        }
+        delete welcome_data[session.channelId];
+        saveData("Momona");
+        return session.text("welcome_off");
       }
     });
 
@@ -140,14 +133,16 @@ export function apply(ctx: Context, cfg: Config) {
       const welcome: string =
         momona_data["Momona"].welcome[session.platform][session.guildId];
       const at = h.at(session.userId);
-      const text_list = welcome.split("{@}").flatMap((str, index) => {
-        if (index === 0) {
-          return [str];
-        } else {
-          return [at, str];
-        }
-      });
-      session.send(text_list);
+      if (welcome) {
+        const text_list = welcome.split("{@}").flatMap((str, index) => {
+          if (index === 0) {
+            return [str];
+          } else {
+            return [at, str];
+          }
+        });
+        session.send(text_list);
+      }
     }
   });
 
