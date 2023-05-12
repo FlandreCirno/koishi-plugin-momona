@@ -1,4 +1,4 @@
-import { Context, Dict, Random, Schema, h } from "koishi";
+import { Context, Dict, Random, Schema, h, sleep } from "koishi";
 import * as MomonaCore from "./momona";
 import { getArrayValue, getValue } from "./utils";
 import * as utils from "./utils";
@@ -61,7 +61,6 @@ export function apply(ctx: Context, cfg: Config) {
   MomonaCore.loadData("BLHX", BLHXData);
   const logger = ctx.logger("momona-blhx");
   const translate_v2 = new google_translate.v2.Translate();
-  const twitterClient = new TwitterApi(cfg.twitter_token);
   const dc_bot = "discord:1089721872255557732";
   const ob_bot = "onebot:3403896494";
   ctx
@@ -97,23 +96,42 @@ export function apply(ctx: Context, cfg: Config) {
     })
     .action(async ({ session }, option, index) => {
       if (option === "twitter") {
-        const tweets = await twitterClient.v1.userTimelineByUsername(
-          "azurlane_staff",
-          { tweet_mode: "extended", count: 5, exclude_replies: true }
-        );
         if (index === undefined) {
-          console.log(tweets);
           return;
         }
-        var i = 0;
-        for (var t of tweets) {
-          if (i == index) {
-            const tweet = t;
-            console.log(JSON.stringify(tweet));
-            forwardTweet(tweet);
-            break;
-          }
-          i++;
+        let page: Page;
+        const url = "https://twitter.com/azurlane_staff";
+        try {
+          page = await ctx.puppeteer.page();
+          await page.setViewport({ width: 1920, height: 1920 });
+          logger.info("正在加载推特timeline");
+          await page.goto(url);
+          try {
+            await page.waitForNetworkIdle({ timeout: 30000, idleTime: 1000 });
+            logger.info("加载推特timeline完成");
+          } catch (e) {}
+          session.send(h.image(await page.screenshot({}), "data"));
+          const tweets = await page.$$(`div[data-testid="tweetText"]`);
+          logger.info("正在跳转推特页面");
+          await tweets[index].click();
+          await sleep(5000);
+          session.send(h.image(await page.screenshot({}), "data"));
+          await sleep(5000);
+          session.send(h.image(await page.screenshot({}), "data"));
+          await sleep(5000);
+          session.send(h.image(await page.screenshot({}), "data"));
+          await sleep(5000);
+          session.send(h.image(await page.screenshot({}), "data"));
+          let tweet_id = page.url().match(/\d+/)[0];
+          logger.info("跳转推特页面完成");
+          const buffer = await (
+            await page.$('article[data-testid="tweet"]')
+          ).screenshot({});
+          session.send(h.image(buffer, "data"));
+        } catch (e) {
+          throw e;
+        } finally {
+          page?.close();
         }
       } else if (option === "bilibili") {
         const bilibili_data = (
@@ -440,7 +458,7 @@ export function apply(ctx: Context, cfg: Config) {
     return results;
   }
 
-  async function forwardTweet(tweet: TweetV1) {
+  async function forwardTweetOld(tweet: TweetV1) {
     const broadcast_discord =
       MomonaCore.momona_data["BLHX"].broadcast["discord"];
     const broadcast_onebot = MomonaCore.momona_data["BLHX"].broadcast["onebot"];
@@ -553,8 +571,26 @@ export function apply(ctx: Context, cfg: Config) {
     logger.info(`已转发推特${tweet.id}`);
   }
 
+  async function forwardTweet(tweet: Buffer, account: string, id: string) {
+    const message = account + "发布了新推特：";
+    const broadcast_discord =
+      MomonaCore.momona_data["BLHX"].broadcast["discord"];
+    const broadcast_onebot = MomonaCore.momona_data["BLHX"].broadcast["onebot"];
+    await ctx.bots[dc_bot].broadcast(broadcast_discord, message);
+    await ctx.bots[dc_bot].broadcast(broadcast_discord, h.image(tweet, "data"));
+    const onebot = ctx.bots[ob_bot];
+    onebot.broadcast(broadcast_onebot, message);
+    const msg_id2: Promise<string[]> = onebot.sendPrivateMessage(
+      cfg.onebot_combined_qq,
+      h.image(tweet, "data")
+    );
+    onebot.broadcast(broadcast_onebot, h.image(tweet, "data"));
+
+    logger.info(`已转发推特${id}`);
+  }
+
   //推特动态检测定时任务
-  ctx.cron("* * * * *", async () => {
+  ctx.cron("*/2 * * * *", async () => {
     const sent_post = MomonaCore.momona_data["BLHX"].sent_post;
     const bilibili_data = (
       await ctx.http("GET", ctx.config.bilibili_url, {
@@ -576,22 +612,75 @@ export function apply(ctx: Context, cfg: Config) {
 
     // 检查推特
     for (const twitter_account of ctx.config.twitter) {
+      let page: Page;
       const sent_tweets = getArrayValue(sent_post.twitter, twitter_account);
-      const tweets = await twitterClient.v1.userTimelineByUsername(
-        twitter_account,
-        { tweet_mode: "extended", count: 5, exclude_replies: true }
-      );
-      for (const tweet of tweets) {
-        if (!sent_tweets.includes(tweet.id)) {
-          sent_tweets.push(tweet.id);
+      const url = "https://twitter.com/" + twitter_account;
+      try {
+        page = await ctx.puppeteer.page();
+        await page.setViewport({ width: 1920, height: 1920 });
+        await page.goto(url);
+        try {
+          await page.waitForNetworkIdle({ timeout: 30000, idleTime: 1000 });
+        } catch (e) {}
+        const tweets = await page.$$(`div[data-testid="tweetText"]`);
+        await tweets[0].click();
+        await sleep(5000);
+        const tweet_id = page.url().match(/\d+/)[0];
+        if (!sent_tweets.includes(tweet_id)) {
+          sent_tweets.push(tweet_id);
+          try {
+            await page.waitForNavigation({
+              waitUntil: "networkidle2",
+              timeout: 120000,
+            });
+          } catch (e) {}
           if (sent_tweets.length > 50) {
             sent_tweets.shift();
           }
           MomonaCore.saveData("BLHX");
-          if (!tweet["in_reply_to_status_id"]) {
-            await forwardTweet(tweet);
-          }
+          const buffer = await (
+            await page.$('article[data-testid="tweet"]')
+          ).screenshot({});
+          await forwardTweet(buffer, twitter_account, tweet_id);
         }
+      } catch (e) {
+        throw e;
+      } finally {
+        page?.close();
+      }
+
+      try {
+        page = await ctx.puppeteer.page();
+        await page.setViewport({ width: 1920, height: 1920 });
+        await page.goto(url);
+        try {
+          await page.waitForNetworkIdle({ timeout: 30000, idleTime: 1000 });
+        } catch (e) {}
+        const tweets = await page.$$(`div[data-testid="tweetText"]`);
+        await tweets[1].click();
+        await sleep(5000);
+        const tweet_id = page.url().match(/\d+/)[0];
+        if (!sent_tweets.includes(tweet_id)) {
+          sent_tweets.push(tweet_id);
+          try {
+            await page.waitForNavigation({
+              waitUntil: "networkidle2",
+              timeout: 120000,
+            });
+          } catch (e) {}
+          if (sent_tweets.length > 50) {
+            sent_tweets.shift();
+          }
+          MomonaCore.saveData("BLHX");
+          const buffer = await (
+            await page.$('article[data-testid="tweet"]')
+          ).screenshot({});
+          await forwardTweet(buffer, twitter_account, tweet_id);
+        }
+      } catch (e) {
+        throw e;
+      } finally {
+        page?.close();
       }
     }
   });

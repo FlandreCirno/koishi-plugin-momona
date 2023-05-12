@@ -9,7 +9,7 @@ export interface Config {
 
 export const Config: Schema<Config> = Schema.object({
   endpoint: Schema.string().default("https://api.lolicon.app/setu/v2"),
-  proxy: Schema.string().default("setubot-flandrecirno.herokuapp.com"),
+  proxy: Schema.string().default("i.loli.best"),
 });
 
 export interface JrrpData {
