@@ -46,6 +46,6 @@ export function apply(ctx: Context, cfg: Config) {
   ctx.plugin(Console);
   ctx.plugin(Jrrp);
   ctx.plugin(Dice);
-  ctx.plugin(Manage);
-  ctx.plugin(BLHX, BLHX.Config(cfg));
+  // ctx.plugin(Manage);
+  // ctx.plugin(BLHX, BLHX.Config(cfg));
 }

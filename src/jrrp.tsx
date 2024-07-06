@@ -9,7 +9,7 @@ export interface Config {
 
 export const Config: Schema<Config> = Schema.object({
   endpoint: Schema.string().default("https://api.lolicon.app/setu/v2"),
-  proxy: Schema.string().default("i.loli.best"),
+  proxy: Schema.string().default("i.pixiv.re"),
 });
 
 export interface JrrpData {
@@ -35,7 +35,7 @@ export function apply(ctx: Context) {
       for (let i in tags) {
         if (
           tags[i].toString().toLowerCase() === "r18" &&
-          session.platform !== "onebot"
+          session.platform !== "qq"
         ) {
           r18 = 1;
         } else {
@@ -51,10 +51,11 @@ export function apply(ctx: Context) {
       };
       const response = await ctx.http("POST", ctx.config.endpoint, {
         data: params,
+        header: {"Content-Type": "application/json"}
       });
 
-      if (response["data"] && response["data"].length > 0) {
-        let imgurl = response["data"][0]["urls"]["regular"];
+      if (response.data.data && response.data.data.length > 0) {
+        let imgurl = response.data.data[0]["urls"]["regular"];
         if (session.platform === "discord") {
           session.send(h("image", { url: imgurl }));
         } else if (session.platform === "onebot") {
@@ -84,6 +85,8 @@ export function apply(ctx: Context) {
               }
             }
           }
+        } else if (session.platform === "qq") {
+          session.send(h("image", { url: imgurl }));
         }
       } else {
         session.send(session.text("setu_error"));

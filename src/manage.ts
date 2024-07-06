@@ -1,7 +1,7 @@
 import { Context, Dict, Schema, Session, h } from "koishi";
 import * as MomonaCore from "./momona";
 import {} from "@koishijs/plugin-help";
-import OneBotBot from "@koishijs/plugin-adapter-onebot";
+// import OneBotBot from "@koishijs/plugin-adapter-onebot";
 import { getArrayValue } from "./utils";
 export const name = "momona-manage";
 
@@ -67,63 +67,63 @@ export function apply(ctx: Context) {
       }
     });
 
-  // 好友请求通过/拒绝逻辑
-  ctx.on("friend-request", (session) => {
-    if (session.platform === "onebot") {
-      const bot = session.bot as OneBotBot;
-      if (isTrusted(session)) {
-        logger.info(
-          `passing friend request ${session.messageId} from ${session.userId}`
-        );
-        bot.handleFriendRequest(session.messageId, true);
-      } else {
-        logger.info(
-          `rejecting friend request ${session.messageId} from ${session.userId}`
-        );
-        bot.handleFriendRequest(session.messageId, false);
-      }
-    }
-  });
+  // // 好友请求通过/拒绝逻辑
+  // ctx.on("friend-request", (session) => {
+  //   if (session.platform === "onebot") {
+  //     const bot = session.bot as OneBotBot;
+  //     if (isTrusted(session)) {
+  //       logger.info(
+  //         `passing friend request ${session.messageId} from ${session.userId}`
+  //       );
+  //       bot.handleFriendRequest(session.messageId, true);
+  //     } else {
+  //       logger.info(
+  //         `rejecting friend request ${session.messageId} from ${session.userId}`
+  //       );
+  //       bot.handleFriendRequest(session.messageId, false);
+  //     }
+  //   }
+  // });
 
   // 群邀请通过/拒绝逻辑
-  ctx.on("guild-request", (session) => {
-    if (session.platform === "onebot") {
-      const bot = session.bot as OneBotBot;
-      if (isTrusted(session)) {
-        logger.info(
-          `passing guild request ${session.messageId} from ${session.userId}`
-        );
-        bot.handleGuildRequest(session.messageId, true);
-      } else {
-        logger.info(
-          `rejecting guild request ${session.messageId} from ${session.userId}`
-        );
-        bot.handleGuildRequest(
-          session.messageId,
-          false,
-          "阁下请加群671410966申请信任"
-        );
-      }
-    }
+  // ctx.on("guild-request", (session) => {
+  //   if (session.platform === "onebot") {
+  //     const bot = session.bot as OneBotBot;
+  //     if (isTrusted(session)) {
+  //       logger.info(
+  //         `passing guild request ${session.messageId} from ${session.userId}`
+  //       );
+  //       bot.handleGuildRequest(session.messageId, true);
+  //     } else {
+  //       logger.info(
+  //         `rejecting guild request ${session.messageId} from ${session.userId}`
+  //       );
+  //       bot.handleGuildRequest(
+  //         session.messageId,
+  //         false,
+  //         "阁下请加群671410966申请信任"
+  //       );
+  //     }
+  //   }
   });
 
-  ctx
-    .platform("onebot")
-    .command("apply <msg:text>", "申请使用", {
-      hidden: true,
-    })
-    .action(({ session }, msg) => {
-      logger.info(`received apply from ${session.username}(${session.userId})`);
-      // session.bot.sendPrivateMessage(
-      //   ctx.config.qqadmin,
-      //   `收到来自${session.username}(${session.userId})的消息：${msg}`
-      // );
-      session.bot.sendMessage(
-        "247747205",
-        `收到来自${session.username}(${session.userId})的消息：${msg}`
-      );
-      return "申请发送成功，请等待申请通过";
-    });
+  // ctx
+  //   .platform("onebot")
+  //   .command("apply <msg:text>", "申请使用", {
+  //     hidden: true,
+  //   })
+  //   .action(({ session }, msg) => {
+  //     logger.info(`received apply from ${session.username}(${session.userId})`);
+  //     // session.bot.sendPrivateMessage(
+  //     //   ctx.config.qqadmin,
+  //     //   `收到来自${session.username}(${session.userId})的消息：${msg}`
+  //     // );
+  //     session.bot.sendMessage(
+  //       "247747205",
+  //       `收到来自${session.username}(${session.userId})的消息：${msg}`
+  //     );
+  //     return "申请发送成功，请等待申请通过";
+  //   });
 }
 
 export function isTrusted(session: Session) {

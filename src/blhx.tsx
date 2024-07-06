@@ -3,7 +3,7 @@ import * as MomonaCore from "./momona";
 import { getArrayValue, getValue } from "./utils";
 import * as utils from "./utils";
 import {} from "koishi-plugin-cron";
-import { Shooter } from "koishi-plugin-puppeteer";
+import Shooter from "koishi-plugin-puppeteer";
 import { Page } from "puppeteer-core";
 import OneBotBot, { CQCode, OneBot } from "@koishijs/plugin-adapter-onebot";
 import * as google_translate from "@google-cloud/translate";
@@ -66,6 +66,7 @@ export function apply(ctx: Context, cfg: Config) {
   ctx
     .command("blhx <option>", "碧蓝航线转推开关")
     .usage("开关碧蓝航线转推功能，开启后自动转发b博和推特消息")
+    .example(".blhx on")
     .action(({ session }, option) => {
       if (option) {
         if (utils.isGroupAdmin(session)) {
@@ -103,7 +104,7 @@ export function apply(ctx: Context, cfg: Config) {
         const url = "https://twitter.com/azurlane_staff";
         try {
           page = await ctx.puppeteer.page();
-          await page.setViewport({ width: 1920, height: 1920 });
+          await page.setViewport({ width: 1080, height: 720 });
           logger.info("正在加载推特timeline");
           await page.goto(url);
           try {
@@ -297,8 +298,34 @@ export function apply(ctx: Context, cfg: Config) {
       })
     );
     const onebot = ctx.bots[ob_bot];
+
+    const dynamic_type = dynamic["desc"]["type"];
+    let screenshot_buffer: Buffer;
+    if (dynamic_type === 1) {
+      screenshot_buffer = await renderWebpage(
+        `https://www.bilibili.com/opus/${dynamic["desc"]["dynamic_id_str"]}`,
+        ".bili-dyn-item__main"
+      );
+    } else if (dynamic_type === 4) {
+      screenshot_buffer = await renderWebpage(
+        `https://www.bilibili.com/opus/${dynamic["desc"]["dynamic_id_str"]}`,
+        ".bili-opus-view"
+      );
+    } else if (dynamic_type === 2) {
+      screenshot_buffer = await renderWebpage(
+        `https://www.bilibili.com/opus/${dynamic["desc"]["dynamic_id_str"]}`,
+        ".bili-opus-view"
+      );
+    } else if (dynamic_type === 64) {
+      const dynamic_card = JSON.parse(dynamic["card"]);
+      screenshot_buffer = await renderWebpage(
+        `https://www.bilibili.com/read/cv${dynamic_card["id"]}`,
+        ".article-container"
+      );
+    }
+    onebot.broadcast(broadcast_onebot, h.image(screenshot_buffer, "data"));
     // 分片发送模式
-    if (cfg.onebot_mode === "slice") {
+    if (cfg.onebot_mode === "sliced") {
       onebot.broadcast(
         broadcast_onebot,
         slice(message.message).map((m) => h("message", m))
@@ -310,9 +337,9 @@ export function apply(ctx: Context, cfg: Config) {
         })
       );
     } else if (cfg.onebot_mode === "combined") {
-      // 合并转发模式
-      // 长度小于80仍然发单独消息
       if (message.message.length < 80) {
+        // 合并转发模式
+        // 长度小于80仍然发单独消息
         onebot.broadcast(broadcast_onebot, message.message);
         onebot.broadcast(
           broadcast_onebot,
@@ -321,30 +348,6 @@ export function apply(ctx: Context, cfg: Config) {
           })
         );
       } else {
-        const dynamic_type = dynamic["desc"]["type"];
-        let screenshot_buffer: Buffer;
-        if (dynamic_type === 1) {
-          screenshot_buffer = await renderWebpage(
-            `https://www.bilibili.com/opus/${dynamic["desc"]["dynamic_id_str"]}`,
-            ".bili-dyn-item__main"
-          );
-        } else if (dynamic_type === 4) {
-          screenshot_buffer = await renderWebpage(
-            `https://www.bilibili.com/opus/${dynamic["desc"]["dynamic_id_str"]}`,
-            ".bili-opus-view"
-          );
-        } else if (dynamic_type === 2) {
-          screenshot_buffer = await renderWebpage(
-            `https://www.bilibili.com/opus/${dynamic["desc"]["dynamic_id_str"]}`,
-            ".bili-opus-view"
-          );
-        } else if (dynamic_type === 64) {
-          const dynamic_card = JSON.parse(dynamic["card"]);
-          screenshot_buffer = await renderWebpage(
-            `https://www.bilibili.com/read/cv${dynamic_card["id"]}`,
-            ".article-container"
-          );
-        }
         onebot.broadcast(broadcast_onebot, message.message.split("\n")[0]);
         const msg_id1: Promise<string[]> = onebot.sendPrivateMessage(
           cfg.onebot_combined_qq,
@@ -363,18 +366,16 @@ export function apply(ctx: Context, cfg: Config) {
             </message>
           </message>
         );
-        const msg_id2: Promise<string[]> = onebot.sendPrivateMessage(
-          cfg.onebot_combined_qq,
-          h.image(screenshot_buffer, "data")
-        );
-
+        // const msg_id2: Promise<string[]> = onebot.sendPrivateMessage(
+        //   cfg.onebot_combined_qq,
+        //   h.image(screenshot_buffer, "data")
+        // );
         onebot.broadcast(
           broadcast_onebot,
           <message forward>
             <message id={(await msg_id1)[0]} />
           </message>
         );
-        onebot.broadcast(broadcast_onebot, h.image(screenshot_buffer, "data"));
       }
     }
     logger.info(`已转发b博${dynamic["desc"]["dynamic_id"]}`);
@@ -384,10 +385,10 @@ export function apply(ctx: Context, cfg: Config) {
     let page: Page;
     try {
       page = await ctx.puppeteer.page();
-      await page.setViewport({ width: 2560, height: 1440 });
+      await page.setViewport({ width: 1080, height: 720 });
       await page.goto(url);
       try {
-        await page.waitForNetworkIdle({ timeout: 60000, idleTime: 1000 });
+        await page.waitForNetworkIdle({ timeout: 60000, idleTime: 3000 });
       } catch (e) {}
       const shooter: Shooter = await page.$(selector);
       return await shooter.screenshot({});
@@ -554,10 +555,10 @@ export function apply(ctx: Context, cfg: Config) {
         </message>
       );
 
-      const msg_id2: Promise<string[]> = onebot.sendPrivateMessage(
-        cfg.onebot_combined_qq,
-        h.image(screenshot_buffer, "data")
-      );
+      // const msg_id2: Promise<string[]> = onebot.sendPrivateMessage(
+      //   cfg.onebot_combined_qq,
+      //   h.image(screenshot_buffer, "data")
+      // );
 
       onebot.broadcast(
         broadcast_onebot,
@@ -577,7 +578,10 @@ export function apply(ctx: Context, cfg: Config) {
       MomonaCore.momona_data["BLHX"].broadcast["discord"];
     const broadcast_onebot = MomonaCore.momona_data["BLHX"].broadcast["onebot"];
     await ctx.bots[dc_bot].broadcast(broadcast_discord, message);
-    await ctx.bots[dc_bot].broadcast(broadcast_discord, h.image(tweet, "data"));
+    await ctx.bots[dc_bot].broadcast(
+      broadcast_discord,
+      h.image(tweet, "image/png")
+    );
     const onebot = ctx.bots[ob_bot];
     onebot.broadcast(broadcast_onebot, message);
     const msg_id2: Promise<string[]> = onebot.sendPrivateMessage(
@@ -589,8 +593,8 @@ export function apply(ctx: Context, cfg: Config) {
     logger.info(`已转发推特${id}`);
   }
 
-  //推特动态检测定时任务
-  ctx.cron("*/2 * * * *", async () => {
+  //动态检测定时任务
+  ctx.cron("* * * * *", async () => {
     const sent_post = MomonaCore.momona_data["BLHX"].sent_post;
     const bilibili_data = (
       await ctx.http("GET", ctx.config.bilibili_url, {
@@ -609,7 +613,11 @@ export function apply(ctx: Context, cfg: Config) {
         await forwardDynamic(card);
       }
     }
+  });
 
+  //推特检测定时任务
+  /*ctx.cron("* * * * *", async () => {
+    const sent_post = MomonaCore.momona_data["BLHX"].sent_post;
     // 检查推特
     for (const twitter_account of ctx.config.twitter) {
       let page: Page;
@@ -617,7 +625,7 @@ export function apply(ctx: Context, cfg: Config) {
       const url = "https://twitter.com/" + twitter_account;
       try {
         page = await ctx.puppeteer.page();
-        await page.setViewport({ width: 1920, height: 1920 });
+        await page.setViewport({ width: 1080, height: 720 });
         await page.goto(url);
         try {
           await page.waitForNetworkIdle({ timeout: 30000, idleTime: 1000 });
@@ -651,7 +659,7 @@ export function apply(ctx: Context, cfg: Config) {
 
       try {
         page = await ctx.puppeteer.page();
-        await page.setViewport({ width: 1920, height: 1920 });
+        await page.setViewport({ width: 1080, height: 720 });
         await page.goto(url);
         try {
           await page.waitForNetworkIdle({ timeout: 30000, idleTime: 1000 });
@@ -683,5 +691,5 @@ export function apply(ctx: Context, cfg: Config) {
         page?.close();
       }
     }
-  });
+  });*/
 }
